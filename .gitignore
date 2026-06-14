@@ -1,0 +1,29 @@
+# Rust
+target/
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.so
+*.pyd
+
+# Maturin
+*.whl
+
+# Benchmarks - large test files
+benchmarks/large_file_test.xlsx
+benchmarks/*.xlsx
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store

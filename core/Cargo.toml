@@ -1,0 +1,18 @@
+[package]
+name = "streamxl-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "streamxl_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+zip = "2"
+quick-xml = { version = "0.36", features = ["async-tokio"] }
+pyo3 = { version = "0.23", features = ["extension-module"], optional = true }
+
+[features]
+python = ["pyo3"]
