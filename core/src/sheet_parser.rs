@@ -26,7 +26,8 @@ impl<'a> SheetParser<'a> {
         let mut row: Option<Vec<CellValue>> = None;
         let mut cell_type = String::new();
         let mut cell_value = String::new();
-        let mut in_v = false;
+        let mut in_v = false;   // inside <v> (numeric / shared-string index)
+        let mut in_t = false;   // inside <is><t> (inlineStr text)
 
         loop {
             match self.reader.read_event()? {
@@ -38,15 +39,20 @@ impl<'a> SheetParser<'a> {
                             .flatten()
                             .find(|a| a.key.as_ref() == b"t")
                             .map(|a| String::from_utf8_lossy(&a.value).into_owned())
-                            .unwrap_or_default();
+                            .unwrap_or_else(|| "n".to_string());
                         cell_value.clear();
                     }
                     b"v" => in_v = true,
+                    // inlineStr stores text in <is><t>...</t></is>
+                    b"t" if cell_type == "inlineStr" => in_t = true,
                     _ => {}
                 },
-                Event::Text(e) if in_v => cell_value.push_str(&e.unescape()?),
+                Event::Text(ref e) if in_v || in_t => {
+                    cell_value.push_str(&e.unescape()?);
+                }
                 Event::End(ref e) => match e.name().as_ref() {
                     b"v" => in_v = false,
+                    b"t" => in_t = false,
                     b"c" => {
                         if let Some(ref mut r) = row {
                             r.push(self.resolve_cell(&cell_type, &cell_value));
@@ -75,6 +81,7 @@ impl<'a> SheetParser<'a> {
                     .map(|s| CellValue::String(s.clone()))
                     .unwrap_or(CellValue::Empty)
             }
+            "inlineStr" => CellValue::String(value.to_string()),
             "b" => CellValue::Bool(value == "1"),
             _ if value.is_empty() => CellValue::Empty,
             _ => value
