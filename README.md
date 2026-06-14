@@ -5,6 +5,11 @@
 [![CI](https://github.com/Mullassery/StreamXL/actions/workflows/ci.yml/badge.svg)](https://github.com/Mullassery/StreamXL/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/streamxl)](https://pypi.org/project/streamxl/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://pypi.org/project/streamxl/)
+[![Rust](https://img.shields.io/badge/rust-1.96%2B-orange)](https://www.rust-lang.org/)
+
+> **What is this?**
+> streamxl is a Python library that reads `.xlsx` files row-by-row without loading the entire file into memory. The parsing engine is written in Rust and exposed to Python via PyO3. It is designed for ETL pipelines, data engineering workflows, and any scenario where openpyxl runs out of memory or is too slow.
 
 ---
 
@@ -25,11 +30,35 @@ streamxl processes ~27,000 rows/sec consistently. openpyxl full load approaches 
 
 ## Installation
 
+### pip
+
 ```bash
 pip install streamxl
 ```
 
-Requires Python 3.8+. Pre-built wheels for Linux, macOS (Apple Silicon + Intel), Windows.
+### uv (recommended for new projects)
+
+```bash
+uv add streamxl
+```
+
+### Install from source (requires Rust)
+
+```bash
+# Install Rust if not already present
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install maturin build tool
+pip install maturin   # or: uv add maturin
+
+# Clone and build
+git clone https://github.com/Mullassery/StreamXL.git
+cd StreamXL
+maturin develop --release   # installs into current Python env
+```
+
+**Requires:** Python 3.9+ · Rust 1.70+ (source builds only)  
+**Wheels available for:** Linux (x86_64, aarch64) · macOS (Apple Silicon, Intel) · Windows (x86_64)
 
 ---
 
@@ -73,16 +102,26 @@ for row in streamxl.read("large.xlsx"):
         rows.clear()
 ```
 
+### Use as an alias
+
+```python
+from streamxl import stream   # identical to read()
+
+for row in stream("data.xlsx"):
+    print(row)
+```
+
 ---
 
 ## Cell value types
 
-| XLSX type | Python type |
-|-----------|-------------|
-| String (shared string) | `str` |
-| Number | `float` |
-| Boolean | `bool` |
-| Empty cell | `None` |
+| XLSX cell type | Python type | Notes |
+|----------------|-------------|-------|
+| Shared string (`t="s"`) | `str` | Resolved from sharedStrings.xml |
+| Inline string (`t="inlineStr"`) | `str` | Read directly from sheet XML |
+| Number (`t="n"` or default) | `float` | All numeric values returned as float |
+| Boolean (`t="b"`) | `bool` | `"1"` → `True`, `"0"` → `False` |
+| Empty cell | `None` | Cell absent or blank |
 
 ---
 
@@ -101,17 +140,45 @@ python/src/lib.rs             PyO3 bridge (zero-copy FFI)
         │
         ▼
 core/src/stream.rs            Rust: orchestrates ZIP + XML parsing
-   ├── zip_reader.rs          wraps the zip crate
+   ├── zip_reader.rs          wraps the zip crate for entry access
    ├── shared_strings.rs      parses xl/sharedStrings.xml → Vec<String>
    └── sheet_parser.rs        streams <row> elements one at a time
 ```
 
-1. The XLSX ZIP is opened and `sharedStrings.xml` is read once into memory (typically < 1 MB).
-2. `sheet1.xml` is parsed as a stream — only one `<row>` is in memory at any time.
-3. Cell values are resolved via index lookup into the shared string table.
-4. PyO3 converts each Rust `Vec<CellValue>` to a Python `list` on demand.
+1. The XLSX ZIP is opened; `sharedStrings.xml` is loaded once (typically < 1 MB).
+2. `sheet1.xml` is event-streamed via `quick-xml` — only one `<row>` exists in memory at a time.
+3. String cells are resolved via O(1) index lookup into the shared string table.
+4. PyO3 converts each Rust `Vec<CellValue>` into a Python `list` on demand, row by row.
 
 See [docs/architecture.md](docs/architecture.md) for full details.
+
+---
+
+## Repository layout
+
+```
+streamxl/
+├── core/                    # Rust engine (ZIP + XML streaming)
+│   └── src/
+│       ├── lib.rs
+│       ├── zip_reader.rs
+│       ├── sheet_parser.rs  # inlineStr + sharedString + bool/number parsing
+│       ├── shared_strings.rs
+│       └── stream.rs
+├── python/                  # PyO3 bindings + Python API
+│   ├── src/lib.rs           # Rust ↔ Python bridge
+│   └── streamxl/
+│       ├── __init__.py
+│       ├── api.py           # streamxl.read() / streamxl.stream()
+│       └── core.py
+├── benchmarks/              # openpyxl vs streamxl comparison scripts
+├── tests/                   # pytest test suite
+├── examples/                # ETL, CSV export, memory benchmark
+├── docs/                    # Architecture, API spec, XLSX format notes
+├── scripts/                 # build.sh, benchmark.sh
+├── pyproject.toml           # maturin build config
+└── Cargo.toml               # Rust workspace root
+```
 
 ---
 
@@ -140,11 +207,13 @@ python benchmarks/openpyxl_vs_streamxl.py your_file.xlsx
 
 - [x] Streaming XLSX reader (sheet1)
 - [x] sharedStrings resolution
-- [x] PyO3 Python bindings
-- [x] Boolean and numeric cell types
-- [ ] Multi-sheet support (`sheet` parameter)
+- [x] inlineStr cell type support
+- [x] PyO3 Python bindings (Python 3.9–3.13)
+- [x] Boolean, numeric, and string cell types
+- [x] pip and uv installable wheel
+- [ ] Multi-sheet support (`sheet="SheetName"` parameter)
 - [ ] Date/datetime cell type
-- [ ] Header row as dict keys
+- [ ] Header row as dict keys (`as_dict=True`)
 - [ ] PyPI wheel distribution (manylinux + macOS + Windows)
 
 ---
@@ -168,7 +237,7 @@ maturin develop
 
 ```bash
 pip install pytest
-pytest tests/
+pytest tests/ -v
 ```
 
 ### Benchmark
