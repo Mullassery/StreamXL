@@ -30,19 +30,35 @@ streamxl processes ~27,000 rows/sec consistently. openpyxl full load approaches 
 
 ## Installation
 
+### One-liner (recommended)
+
+```bash
+curl -sSf https://raw.githubusercontent.com/Mullassery/StreamXL/main/scripts/install.sh | sh
+```
+
+Auto-detects Python and package manager (uv or pip). Tries PyPI first; falls back to building from source if no pre-built wheel is available for your platform. Installs Rust automatically if needed.
+
 ### pip
 
 ```bash
 pip install streamxl
 ```
 
-### uv (recommended for new projects)
+### uv
 
 ```bash
 uv add streamxl
 ```
 
-### Install from source (requires Rust)
+### From GitHub (always latest)
+
+```bash
+pip install git+https://github.com/Mullassery/StreamXL.git
+# or
+uv pip install git+https://github.com/Mullassery/StreamXL.git
+```
+
+### From source (for development)
 
 ```bash
 # Install Rust if not already present
