@@ -1,0 +1,46 @@
+# streamxl — Cursor rules
+
+## What this repo is
+
+Rust + Python streaming XLSX reader. Rust engine in `core/`, PyO3 bindings in `python/`, built with maturin.
+
+## Build commands
+
+```bash
+maturin develop          # dev build (editable install)
+maturin build --release  # release wheel
+cargo test --manifest-path core/Cargo.toml  # Rust tests only
+```
+
+Never run `cargo build --workspace` — `python/` has its own `[workspace]` and requires Python headers; only maturin can build it.
+
+## Critical rules
+
+1. **`sheet_parser.rs` uses `read_event()` on `Reader<&[u8]>`** — do not change to `read_event_into()`. The latter silently breaks string resolution.
+
+2. **Both `inlineStr` and `s` cell types are required** — openpyxl writes `t="inlineStr"` (text in `<is><t>`), not `t="s"` (SST index). Do not remove either branch in `resolve_cell()`.
+
+3. **`python/Cargo.toml` must keep `[workspace]` at the top** — this makes it standalone so maturin doesn't conflict with the root Cargo workspace.
+
+4. **PyO3 0.23 bool conversion** — use `.as_any().clone().unbind()` for `bool`, not `.into_any().unbind()`.
+
+5. **Only `sheet1.xml` is supported** — multi-sheet support is not yet implemented.
+
+## File map
+
+| File | Purpose |
+|------|---------|
+| `core/src/sheet_parser.rs` | Cell type parsing; all string/bool/number logic |
+| `core/src/shared_strings.rs` | SST parser |
+| `core/src/stream.rs` | Opens ZIP, holds sheet bytes, owns RowIter |
+| `python/src/lib.rs` | PyO3 bridge; exposes `read()` to Python |
+| `python/streamxl/api.py` | Python-facing `read()` / `stream()` iterators |
+| `pyproject.toml` | maturin build config |
+
+## Cell value mapping
+
+- `t="s"` → `str` (SST lookup)
+- `t="inlineStr"` → `str` (inline text)
+- `t="b"` → `bool`
+- `t="n"` or absent → `float`
+- Empty / absent value → `None`

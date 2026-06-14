@@ -1,0 +1,62 @@
+# streamxl
+
+> High-performance streaming XLSX reader for Python, powered by a Rust engine exposed via PyO3.
+
+## What it is
+
+streamxl reads `.xlsx` files row-by-row without loading the entire file into memory. It is designed for ETL pipelines, data engineering, and large-file processing where openpyxl runs out of memory or is too slow.
+
+- 4–5× faster than openpyxl across all file sizes tested
+- ~27,000 rows/sec throughput on Apple Silicon
+- Peak memory stays proportional to the shared string table, not the file size
+
+## Install
+
+```bash
+pip install streamxl
+# or
+uv add streamxl
+# or one-liner (auto-detects uv/pip, falls back to source build)
+curl -sSf https://raw.githubusercontent.com/Mullassery/StreamXL/main/scripts/install.sh | sh
+```
+
+## Usage
+
+```python
+import streamxl
+
+for row in streamxl.read("data.xlsx"):
+    print(row)
+# ['Name', 'Age', 'Score']
+# ['Alice', 30.0, 95.5]
+```
+
+`streamxl.stream()` is an alias for `streamxl.read()`.
+
+Each row is `list[str | float | bool | None]`.
+
+## Cell types
+
+| XLSX `t` attribute | Python type |
+|--------------------|-------------|
+| `s` (shared string) | `str` |
+| `inlineStr` | `str` |
+| `b` (boolean) | `bool` |
+| `n` or absent | `float` |
+| empty / absent value | `None` |
+
+## Architecture
+
+Two-layer design:
+1. **Rust core** (`core/`) — ZIP + XML streaming engine using `zip` and `quick-xml` crates
+2. **PyO3 bridge** (`python/`) — exposes Rust `XlsxStream` to Python; built with `maturin`
+
+The shared string table (SST) is loaded once into memory. Sheet XML is event-streamed one `<row>` at a time. Each row is converted to a Python `list` on demand via PyO3.
+
+## Source
+
+https://github.com/Mullassery/StreamXL
+
+## License
+
+MIT © Georgi Mullassery
