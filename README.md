@@ -118,12 +118,41 @@ for row in streamxl.read("large.xlsx"):
         rows.clear()
 ```
 
+### Multi-sheet support
+
+```python
+import streamxl
+
+# Read a specific sheet by name
+for row in streamxl.read("data.xlsx", sheet="Sheet2"):
+    print(row)
+```
+
+### Header row as dict
+
+```python
+import streamxl
+
+# Return rows as dicts with header row as keys
+for row in streamxl.read("data.xlsx", as_dict=True):
+    print(row)  # {'Name': 'Alice', 'Age': 30, ...}
+```
+
+### Combine multi-sheet + as_dict
+
+```python
+import streamxl
+
+for row in streamxl.read("data.xlsx", sheet="Products", as_dict=True):
+    print(row)
+```
+
 ### Use as an alias
 
 ```python
 from streamxl import stream   # identical to read()
 
-for row in stream("data.xlsx"):
+for row in stream("data.xlsx", sheet="Sheet2", as_dict=True):
     print(row)
 ```
 
@@ -227,9 +256,9 @@ python benchmarks/openpyxl_vs_streamxl.py your_file.xlsx
 - [x] PyO3 Python bindings (Python 3.9–3.13)
 - [x] Boolean, numeric, and string cell types
 - [x] pip and uv installable wheel
-- [ ] Multi-sheet support (`sheet="SheetName"` parameter)
-- [ ] Date/datetime cell type
-- [ ] Header row as dict keys (`as_dict=True`)
+- [x] Multi-sheet support (`sheet="SheetName"` parameter)
+- [x] Date/datetime cell type
+- [x] Header row as dict keys (`as_dict=True`)
 - [ ] PyPI wheel distribution (manylinux + macOS + Windows)
 
 ---

@@ -9,14 +9,20 @@ fn cell_to_pyobject(py: Python<'_>, cell: &CellValue) -> PyResult<PyObject> {
         CellValue::Number(n) => Ok(n.into_pyobject(py)?.into_any().unbind()),
         // bool's into_pyobject returns Borrowed (singleton True/False); use as_any + clone
         CellValue::Bool(b) => Ok(b.into_pyobject(py)?.as_any().clone().unbind()),
+        CellValue::Date(d) => Ok(d.clone().into_pyobject(py)?.into_any().unbind()),
         CellValue::Empty => Ok(py.None()),
     }
 }
 
 #[pyfunction]
-fn read(py: Python<'_>, path: &str) -> PyResult<Py<PyList>> {
-    let stream = XlsxStream::open(path)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
+#[pyo3(signature = (path, sheet=None))]
+fn read(py: Python<'_>, path: &str, sheet: Option<&str>) -> PyResult<Py<PyList>> {
+    let stream = if let Some(sheet_name) = sheet {
+        XlsxStream::open_sheet(path, Some(sheet_name))
+    } else {
+        XlsxStream::open(path)
+    }
+    .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
 
     let result = PyList::empty(py);
 

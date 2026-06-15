@@ -6,6 +6,7 @@ pub enum CellValue {
     String(String),
     Number(f64),
     Bool(bool),
+    Date(String),
     Empty,
 }
 
@@ -83,6 +84,7 @@ impl<'a> SheetParser<'a> {
             }
             "inlineStr" => CellValue::String(value.to_string()),
             "b" => CellValue::Bool(value == "1"),
+            "d" => CellValue::Date(value.to_string()),
             _ if value.is_empty() => CellValue::Empty,
             _ => value
                 .parse::<f64>()

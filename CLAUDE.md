@@ -25,7 +25,7 @@ pytest tests/ -v
 
 ## Repository layout
 
-- `core/src/` — Rust library: `sheet_parser.rs`, `shared_strings.rs`, `stream.rs`, `zip_reader.rs`
+- `core/src/` — Rust library: `sheet_parser.rs`, `shared_strings.rs`, `stream.rs`, `zip_reader.rs`, `workbook.rs`, `relationships.rs`
 - `python/src/lib.rs` — PyO3 bridge (the `.so` extension module)
 - `python/streamxl/` — Python package: `__init__.py`, `api.py`, `core.py`
 - `pyproject.toml` — maturin config; `manifest-path = "python/Cargo.toml"`
@@ -56,11 +56,12 @@ openpyxl writes strings as `t="inlineStr"` with `<is><t>text</t></is>`, not as S
 | `s` | `CellValue::String` | `str` |
 | `inlineStr` | `CellValue::String` | `str` |
 | `b` | `CellValue::Bool` | `bool` |
+| `d` | `CellValue::Date` | `str` (ISO format) |
 | `n` / absent | `CellValue::Number` | `float` |
 | empty | `CellValue::Empty` | `None` |
 
-## Not yet implemented
+## Recently implemented
 
-- Multi-sheet support (`sheet=` parameter)
-- Date/datetime cell type
-- `as_dict=True`
+- Multi-sheet support (`sheet=` parameter in `read()`)
+- Date cell type support
+- Header row as dict (`as_dict=True` parameter in `read()`)
