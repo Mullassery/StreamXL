@@ -9,7 +9,7 @@
 [![Rust](https://img.shields.io/badge/rust-1.96%2B-orange)](https://www.rust-lang.org/)
 
 > **What is this?**
-> streamxl is a Python library that reads `.xlsx` files row-by-row without loading the entire file into memory. The parsing engine is written in Rust and exposed to Python via PyO3. It is designed for ETL pipelines, data engineering workflows, and any scenario where openpyxl runs out of memory or is too slow.
+> streamxl is a Python library that reads `.xlsx` files row-by-row without loading the entire file into memory. It is designed for ETL pipelines, data engineering workflows, and any scenario where openpyxl runs out of memory or is too slow.
 
 ---
 
@@ -152,7 +152,7 @@ streamxl.read("file.xlsx")
 python/streamxl/api.py        Python iterator API
         │
         ▼
-python/src/lib.rs             PyO3 bridge (zero-copy FFI)
+python/src/lib.rs             Python bridge (zero-copy FFI)
         │
         ▼
 core/src/stream.rs            Rust: orchestrates ZIP + XML parsing
@@ -164,7 +164,7 @@ core/src/stream.rs            Rust: orchestrates ZIP + XML parsing
 1. The XLSX ZIP is opened; `sharedStrings.xml` is loaded once (typically < 1 MB).
 2. `sheet1.xml` is event-streamed via `quick-xml` — only one `<row>` exists in memory at a time.
 3. String cells are resolved via O(1) index lookup into the shared string table.
-4. PyO3 converts each Rust `Vec<CellValue>` into a Python `list` on demand, row by row.
+4. Each Rust `Vec<CellValue>` is converted into a Python `list` on demand, row by row.
 
 See [docs/architecture.md](docs/architecture.md) for full details.
 
@@ -181,7 +181,7 @@ streamxl/
 │       ├── sheet_parser.rs  # inlineStr + sharedString + bool/number parsing
 │       ├── shared_strings.rs
 │       └── stream.rs
-├── python/                  # PyO3 bindings + Python API
+├── python/                  # Python API layer
 │   ├── src/lib.rs           # Rust ↔ Python bridge
 │   └── streamxl/
 │       ├── __init__.py
@@ -224,7 +224,7 @@ python benchmarks/openpyxl_vs_streamxl.py your_file.xlsx
 - [x] Streaming XLSX reader (sheet1)
 - [x] sharedStrings resolution
 - [x] inlineStr cell type support
-- [x] PyO3 Python bindings (Python 3.9–3.13)
+
 - [x] Boolean, numeric, and string cell types
 - [x] pip and uv installable wheel
 - [ ] Multi-sheet support (`sheet="SheetName"` parameter)
