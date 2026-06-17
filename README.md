@@ -3,12 +3,12 @@
 **A Python library for reading and writing Microsoft Excel files (`.xlsx`) — powered by Rust.**
 
 [![CI](https://github.com/Mullassery/StreamXL/actions/workflows/ci.yml/badge.svg)](https://github.com/Mullassery/StreamXL/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.2.0-blue)](https://github.com/Mullassery/StreamXL/releases)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue)](https://github.com/Mullassery/StreamXL/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://pypi.org/project/streamxl/)
 [![Rust](https://img.shields.io/badge/rust-1.96%2B-orange)](https://www.rust-lang.org/)
 
-streamxl is a Python library for reading and writing `.xlsx` spreadsheets — files used by Microsoft Excel, Google Sheets, LibreOffice Calc, and any tool that uses the Office Open XML format. It streams row by row on both read and write, so you never load the entire workbook into memory, and runs 4–5× faster than openpyxl.
+streamxl is a Python library for reading and writing `.xlsx` spreadsheets — files used by Microsoft Excel, Google Sheets, LibreOffice Calc, and any tool that uses the Office Open XML format. It streams row by row on both read and write, so you never load the entire workbook into memory, and runs 4–5× faster than openpyxl on read and ~10× faster on write.
 
 ---
 
@@ -58,14 +58,49 @@ import streamxl
 
 for row in streamxl.read("report.xlsx"):
     print(row)
-# ['Name', 'Age', 'Score']
-# ['Alice', 30.0, 95.5]
+# ['Name', 'Joined', 'Score']
+# ['Alice', datetime.date(2024, 1, 15), 95.5]
 # ...
 ```
 
 Works with any `.xlsx` file — exports from Microsoft Excel, Google Sheets ("Download as .xlsx"), LibreOffice Calc, Numbers, or any tool that writes the Office Open XML format.
 
-### Stream a large Excel export to CSV
+### Read a specific sheet
+
+```python
+# List all sheets in the file
+print(streamxl.sheets("report.xlsx"))
+# ['Summary', 'Data', 'Config']
+
+# Read by sheet name
+for row in streamxl.read("report.xlsx", sheet="Data"):
+    print(row)
+```
+
+### Read rows as dicts
+
+```python
+for row in streamxl.read("report.xlsx", as_dict=True):
+    print(row)
+# {'Name': 'Alice', 'Joined': datetime.date(2024, 1, 15), 'Score': 95.5}
+# {'Name': 'Bob',   'Joined': datetime.date(2023, 8, 3),  'Score': 88.0}
+```
+
+The first row is treated as the header and consumed — subsequent rows are yielded as dicts keyed by header values.
+
+### Filter columns
+
+```python
+# By column index (0-based)
+for row in streamxl.read("report.xlsx", columns=[0, 2]):
+    print(row)  # only Name and Score
+
+# By column name (works with or without as_dict)
+for row in streamxl.read("report.xlsx", as_dict=True, columns=["Name", "Score"]):
+    print(row)  # {'Name': ..., 'Score': ...}
+```
+
+### Stream to CSV
 
 ```python
 import csv, streamxl
@@ -100,29 +135,35 @@ for row in streamxl.read("large_report.xlsx"):
 ### Write rows in one call
 
 ```python
-import streamxl
+import datetime, streamxl
 
 streamxl.write("report.xlsx", [
-    ["Name", "Age", "Score", "Active"],
-    ["Alice", 30, 95.5, True],
-    ["Bob",   25, 88.0, False],
+    ["Name", "Joined", "Score", "Active"],
+    ["Alice", datetime.date(2024, 1, 15), 95.5, True],
+    ["Bob",   datetime.date(2023, 8, 3),  88.0, False],
 ])
 ```
 
-Supported cell types: `str`, `int`, `float`, `bool`, `None` (written as an empty cell).
+Supported cell types: `str`, `int`, `float`, `bool`, `None`, `datetime.date`, `datetime.datetime`.
 
-### Stream rows with the context-manager writer
-
-Use `streamxl.writer()` when you're generating rows one at a time and don't want to hold them all in memory:
+### Write multiple sheets
 
 ```python
 import streamxl
 
 with streamxl.writer("report.xlsx") as w:
-    w.write_row(["Name", "Age", "Score"])
-    for name, age, score in fetch_from_db():
-        w.write_row([name, age, score])
-# file is finalised and closed on __exit__
+    # Sheet1 (default)
+    w.write_row(["Name", "Score"])
+    w.write_row(["Alice", 95.5])
+
+    w.add_sheet("Summary")
+    w.write_row(["Metric", "Value"])
+    w.write_row(["Total", 1])
+
+    w.add_sheet("Config")
+    w.write_row(["Key", "Value"])
+    w.write_row(["version", "1.0"])
+# file is finalised on __exit__
 ```
 
 ### ETL: read one Excel file, transform, write another
@@ -145,7 +186,7 @@ openpyxl full load approaches 1 GB RAM at 250k rows and crashes on typical cloud
 
 All benchmarks measured on Apple Silicon (M-series), Python 3.13, Rust 1.96, 10 mixed-type columns.
 
-**Read** — streamxl vs openpyxl, 10 mixed-type columns:
+**Read** — streamxl vs openpyxl:
 
 | Rows | streamxl | openpyxl read_only | openpyxl full load | Speedup |
 |------|----------|--------------------|--------------------|---------|
@@ -184,39 +225,56 @@ python benchmarks/openpyxl_vs_streamxl_write.py
 | Inline string (`t="inlineStr"`) | `str` | Read directly from sheet XML |
 | Number (`t="n"` or default) | `float` | All numeric values returned as float |
 | Boolean (`t="b"`) | `bool` | `"1"` → `True`, `"0"` → `False` |
+| Date (numFmtId 14–17) | `datetime.date` | Excel serial converted to Python date |
+| Datetime (numFmtId 22) | `datetime.datetime` | Excel serial + time fraction |
 | Empty cell | `None` | Cell absent or blank |
 
 **Writing** — Python types are mapped to Excel cells:
 
-| Python type | Excel cell type |
-|-------------|----------------|
-| `str` | Shared string (deduplicated via SST) |
-| `int` / `float` | Number |
-| `bool` | Boolean |
-| `None` | Empty cell |
+| Python type | Excel cell | Notes |
+|-------------|------------|-------|
+| `str` | Shared string | Deduplicated via SST |
+| `int` / `float` | Number | |
+| `bool` | Boolean | |
+| `datetime.date` | Date | Written with numFmtId 14 (mm-dd-yy) |
+| `datetime.datetime` | Datetime | Written with numFmtId 22 (m/d/yy h:mm) |
+| `None` | Empty cell | |
+
+---
+
+## API reference
+
+```python
+# Read
+streamxl.read(path, sheet=None, as_dict=False, columns=None)
+streamxl.stream(path)           # alias for read()
+streamxl.sheets(path)           # → list of sheet names
+
+# Write (all rows at once)
+streamxl.write(path, rows)
+
+# Write (streaming / multi-sheet)
+w = streamxl.writer(path)
+w.write_row(row)                # write one row to the current sheet
+w.add_sheet(name)               # finalise current sheet, start a new one
+w.close()                       # finalise and write the file
+# or use as a context manager (close called automatically on __exit__)
+```
 
 ---
 
 ## Roadmap
 
-**Next**
-- [ ] Date / datetime cell type (read and write)
-- [ ] Multi-sheet read — `streamxl.read("file.xlsx", sheet="Sheet2")`
-- [ ] Multi-sheet write — `writer.add_sheet("Summary")`
-- [ ] Header row as dict — `streamxl.read("file.xlsx", as_dict=True)`
-- [ ] Column name / index filtering — skip columns you don't need on read
-
-**Later**
 - [ ] PyPI manylinux + macOS + Windows wheel distribution
 - [ ] Append mode — open an existing XLSX and add rows
 - [ ] Cell formatting on write — bold headers, number formats
-- [ ] `streamxl.read_all()` → returns a list of dicts, one per sheet
+- [ ] `streamxl.read_all()` → list of `{sheet_name: [rows]}` for all sheets
 
 ---
 
 ## How it works
 
-`.xlsx` is a ZIP archive of XML files. On **read**, streamxl loads `sharedStrings.xml` once, then event-streams `sheet1.xml` via `quick-xml` — one row in memory at a time. On **write**, rows are encoded directly to XML in Rust as they arrive, with strings deduplicated into a shared string table; the ZIP is assembled and flushed to disk on close.
+`.xlsx` is a ZIP archive of XML files. On **read**, streamxl loads `sharedStrings.xml` and `styles.xml` once, then event-streams the target sheet via `quick-xml` — one row in memory at a time. Numeric cells with a date style are converted to Python `datetime` objects using a Julian Day Number algorithm. On **write**, rows are encoded directly to XML in Rust as they arrive, with strings deduplicated into a shared string table; the ZIP is assembled and flushed to disk on close.
 
 ```
 streamxl.read("file.xlsx")          streamxl.write("file.xlsx", rows)
@@ -229,7 +287,9 @@ python/src/lib.rs  (PyO3 bridge)    python/src/lib.rs  (PyO3 bridge)
         │                                    │
         ▼                                    ▼
 core/src/stream.rs                  core/src/writer.rs
-   ├── zip_reader.rs                    └── ZIP + XML generation in Rust
+   ├── workbook.rs   sheet names         └── ZIP + XML + SST in Rust
+   ├── styles.rs     date detection
+   ├── dates.rs      serial conversion
    ├── shared_strings.rs
    └── sheet_parser.rs
 ```
@@ -244,19 +304,22 @@ See [docs/architecture.md](docs/architecture.md) for full details.
 streamxl/
 ├── core/                    # Rust engine
 │   └── src/
-│       ├── stream.rs        # read orchestration
-│       ├── writer.rs        # write: XML generation + ZIP assembly
+│       ├── stream.rs        # read orchestration + sheet selection
+│       ├── writer.rs        # write: multi-sheet XML + ZIP assembly
 │       ├── sheet_parser.rs  # streaming XML row parser
 │       ├── shared_strings.rs
+│       ├── styles.rs        # date format detection from styles.xml
+│       ├── workbook.rs      # sheet name + relationship parsing
+│       ├── dates.rs         # Excel serial ↔ Python date math
 │       └── zip_reader.rs
 ├── python/                  # Python API + PyO3 bridge
 │   ├── src/lib.rs
 │   └── streamxl/
 │       ├── __init__.py
-│       ├── api.py           # read(), stream(), write(), writer()
+│       ├── api.py           # read(), stream(), write(), writer(), sheets()
 │       └── core.py
 ├── benchmarks/              # read and write benchmarks vs openpyxl
-├── tests/                   # pytest suite (22 tests)
+├── tests/                   # pytest suite (46 tests)
 ├── examples/
 ├── docs/
 ├── scripts/
