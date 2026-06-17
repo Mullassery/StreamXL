@@ -1,6 +1,6 @@
 # streamxl
 
-**Read large `.xlsx` files row by row without loading them into memory — powered by Rust.**
+**Read Microsoft Excel files (`.xlsx`) row by row without loading them into memory — powered by Rust.**
 
 [![CI](https://github.com/Mullassery/StreamXL/actions/workflows/ci.yml/badge.svg)](https://github.com/Mullassery/StreamXL/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/Mullassery/StreamXL/releases)
@@ -8,7 +8,7 @@
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://pypi.org/project/streamxl/)
 [![Rust](https://img.shields.io/badge/rust-1.96%2B-orange)](https://www.rust-lang.org/)
 
-If you've hit openpyxl's memory wall on a large file — or just watched it crawl through 100k rows for 20 seconds — streamxl is the drop-in fix. It streams the sheet XML one row at a time, never holding the full file in memory, and runs 4–5× faster than openpyxl across all file sizes.
+If your team exports data from Microsoft Excel, Google Sheets, LibreOffice Calc, or any other spreadsheet tool as `.xlsx`, streamxl lets you process those files in Python without loading the entire workbook into memory. It streams the sheet XML one row at a time and runs 4–5× faster than openpyxl across all file sizes.
 
 ---
 
@@ -51,37 +51,39 @@ maturin develop --release
 
 ## Usage
 
-### Iterate rows
+### Iterate rows from an Excel file
 
 ```python
 import streamxl
 
-for row in streamxl.read("data.xlsx"):
+for row in streamxl.read("report.xlsx"):
     print(row)
 # ['Name', 'Age', 'Score']
 # ['Alice', 30.0, 95.5]
 # ...
 ```
 
-### Stream to CSV
+Works with any `.xlsx` file — exports from Microsoft Excel, Google Sheets ("Download as .xlsx"), LibreOffice Calc, Numbers, or any tool that writes the Office Open XML format.
+
+### Stream a large Excel export to CSV
 
 ```python
 import csv, streamxl
 
 with open("output.csv", "w", newline="") as f:
     writer = csv.writer(f)
-    for row in streamxl.read("large.xlsx"):
+    for row in streamxl.read("excel_export.xlsx"):
         writer.writerow(row)
 ```
 
-### Process in chunks with pandas
+### Process an Excel workbook in chunks with pandas
 
 ```python
 import pandas as pd, streamxl
 
 CHUNK = 10_000
 rows = []
-for row in streamxl.read("large.xlsx"):
+for row in streamxl.read("large_report.xlsx"):
     rows.append(row)
     if len(rows) == CHUNK:
         df = pd.DataFrame(rows)
@@ -95,6 +97,8 @@ for row in streamxl.read("large.xlsx"):
 
 ## Why not just use openpyxl?
 
+openpyxl is the standard Python library for reading Excel files, but it loads the entire workbook into memory. At 250k rows it approaches 1 GB RAM and crashes on typical cloud instances. streamxl processes the same file in 68 MB.
+
 Benchmarked on Apple Silicon, Python 3.13, Rust 1.96 — 10 mixed-type columns:
 
 | Rows | streamxl | openpyxl read_only | openpyxl full load | Speedup |
@@ -104,7 +108,7 @@ Benchmarked on Apple Silicon, Python 3.13, Rust 1.96 — 10 mixed-type columns:
 | 100,000 | **3.59s** · 27.5 MB | 15.80s · 8.1 MB | 19.77s · 373 MB | **4.4×** |
 | 250,000 | **9.04s** · 68.7 MB | 40.46s · 19.6 MB | 50.67s · **911 MB** | **4.5×** |
 
-openpyxl full load approaches 1 GB RAM at 250k rows and crashes beyond that on typical cloud instances. streamxl processes ~27,000 rows/sec regardless of file size.
+Throughput: ~27,000 rows/sec regardless of file size.
 
 Full results and reproduction steps: [`benchmarks/results.md`](benchmarks/results.md)
 
@@ -116,7 +120,9 @@ python benchmarks/openpyxl_vs_streamxl.py your_file.xlsx
 
 ## Cell value types
 
-| XLSX cell type | Python type | Notes |
+Excel cells are mapped to Python types as follows:
+
+| Excel cell type | Python type | Notes |
 |----------------|-------------|-------|
 | Shared string (`t="s"`) | `str` | Resolved from sharedStrings.xml |
 | Inline string (`t="inlineStr"`) | `str` | Read directly from sheet XML |
@@ -142,6 +148,8 @@ python benchmarks/openpyxl_vs_streamxl.py your_file.xlsx
 
 ## How it works
 
+`.xlsx` is a ZIP archive containing XML files. streamxl opens the ZIP, loads `sharedStrings.xml` once (the dictionary Excel uses to deduplicate repeated strings), then event-streams `sheet1.xml` via `quick-xml` — so only one row ever lives in memory at a time.
+
 ```
 streamxl.read("file.xlsx")
         │
@@ -157,11 +165,6 @@ core/src/stream.rs            Rust: orchestrates ZIP + XML parsing
    ├── shared_strings.rs      parses xl/sharedStrings.xml → Vec<String>
    └── sheet_parser.rs        streams <row> elements one at a time
 ```
-
-1. The XLSX ZIP is opened; `sharedStrings.xml` is loaded once (typically < 1 MB).
-2. `sheet1.xml` is event-streamed via `quick-xml` — only one `<row>` exists in memory at a time.
-3. String cells are resolved via O(1) index lookup into the shared string table.
-4. Each Rust `Vec<CellValue>` is converted into a Python `list` on demand, row by row.
 
 See [docs/architecture.md](docs/architecture.md) for full details.
 
