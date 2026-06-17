@@ -208,6 +208,39 @@ with streamxl.writer("output.xlsx") as w:
         w.write_row([name, amount_gbp * 1.27])
 ```
 
+### PySpark integration
+
+Export Spark DataFrames to Excel files efficiently — useful for exporting aggregated results or reports from Spark jobs without loading the entire dataset into the driver memory.
+
+```python
+from pyspark.sql import SparkSession
+import streamxl
+
+spark = SparkSession.builder.appName("excel-export").getOrCreate()
+
+# Read data from a table or file
+df_spark = spark.read.parquet("s3://bucket/data.parquet")
+
+# Collect results to Python and write to Excel
+# Note: collect() loads data to driver, so use filter/limit for large datasets
+results = df_spark.select("customer_id", "total_amount", "status") \
+    .limit(10000) \
+    .collect()
+
+# Write to Excel
+with streamxl.writer("report.xlsx") as w:
+    w.write_row(["Customer ID", "Total Amount", "Status"], bold=True)
+    for row in results:
+        w.write_row([row.customer_id, row.total_amount, row.status])
+
+print(f"Exported {len(results)} rows to report.xlsx")
+```
+
+**Note:** For very large datasets, consider:
+- Writing directly from Spark using `df.coalesce(1).write.format("com.crealytics.spark.excel")` (third-party library)
+- Filtering/sampling in Spark before collecting to Python
+- Using `streamxl.append()` to write results in batches
+
 ---
 
 ## Why not just use openpyxl?
@@ -218,23 +251,23 @@ All benchmarks on Apple Silicon (M-series), Python 3.13, Rust 1.96, 10 mixed-typ
 
 **Read:**
 
-| Rows | streamxl | openpyxl read_only | openpyxl full load | Speedup |
-|------|----------|--------------------|--------------------|---------|
-| 10,000 | **29ms** · 4.3 MB | 1.31s · 2.9 MB | 1.25s · 34 MB | **44×** |
-| 50,000 | **149ms** · 21.6 MB | 7.02s · 13.3 MB | 6.76s · 166 MB | **47×** |
-| 100,000 | **308ms** · 43.2 MB | 14.33s · 26.3 MB | 13.34s · 332 MB | **46×** |
-| 250,000 | **777ms** · 108 MB | 35.99s · 66 MB | 34.63s · **811 MB** | **46×** |
+| Rows | openpyxl read_only | openpyxl full load | **streamxl** | Speedup |
+|------|--------------------|--------------------|----------|---------|
+| 10,000 | 1.31s · 2.9 MB | 1.25s · 34 MB | **29ms** · 4.3 MB | **44×** |
+| 50,000 | 7.02s · 13.3 MB | 6.76s · 166 MB | **149ms** · 21.6 MB | **47×** |
+| 100,000 | 14.33s · 26.3 MB | 13.34s · 332 MB | **308ms** · 43.2 MB | **46×** |
+| 250,000 | 35.99s · 66 MB | 34.63s · **811 MB** | **777ms** · 108 MB | **46×** |
 
 Read throughput: ~320,000 rows/sec.
 
 **Write:**
 
-| Rows | streamxl | openpyxl write_only | Speedup |
-|------|----------|---------------------|---------|
-| 10,000 | **12ms** · 0.1 MB | 102ms · 0.2 MB | **8.8×** |
-| 50,000 | **44ms** · 0.4 MB | 476ms · 1.0 MB | **10.9×** |
-| 100,000 | **90ms** · 0.8 MB | 958ms · 2.0 MB | **10.7×** |
-| 250,000 | **230ms** · 1.9 MB | 2.41s · 5.1 MB | **10.5×** |
+| Rows | openpyxl write_only | **streamxl** | Speedup |
+|------|---------------------|----------|---------|
+| 10,000 | 102ms · 0.2 MB | **12ms** · 0.1 MB | **8.8×** |
+| 50,000 | 476ms · 1.0 MB | **44ms** · 0.4 MB | **10.9×** |
+| 100,000 | 958ms · 2.0 MB | **90ms** · 0.8 MB | **10.7×** |
+| 250,000 | 2.41s · 5.1 MB | **230ms** · 1.9 MB | **10.5×** |
 
 Write throughput: ~1,000,000 rows/sec. Full benchmark scripts: [`benchmarks/`](benchmarks/)
 
@@ -400,3 +433,4 @@ PRs welcome. See [docs/design_decisions.md](docs/design_decisions.md) for archit
 ## License
 
 MIT © Georgi Mullassery
+
