@@ -1,14 +1,14 @@
 # streamxl
 
-**A Python library for reading Microsoft Excel files (`.xlsx`) row by row without loading them into memory — powered by Rust.**
+**A Python library for reading and writing Microsoft Excel files (`.xlsx`) — powered by Rust.**
 
 [![CI](https://github.com/Mullassery/StreamXL/actions/workflows/ci.yml/badge.svg)](https://github.com/Mullassery/StreamXL/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/Mullassery/StreamXL/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue)](https://github.com/Mullassery/StreamXL/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://pypi.org/project/streamxl/)
 [![Rust](https://img.shields.io/badge/rust-1.96%2B-orange)](https://www.rust-lang.org/)
 
-streamxl is a Python library for processing `.xlsx` spreadsheets — files exported from Microsoft Excel, Google Sheets, LibreOffice Calc, or any tool that writes the Office Open XML format. It streams the sheet one row at a time so you never load the entire workbook into memory, and runs 4–5× faster than openpyxl across all file sizes.
+streamxl is a Python library for reading and writing `.xlsx` spreadsheets — files used by Microsoft Excel, Google Sheets, LibreOffice Calc, and any tool that uses the Office Open XML format. It streams row by row on both read and write, so you never load the entire workbook into memory, and runs 4–5× faster than openpyxl.
 
 ---
 
@@ -49,7 +49,7 @@ maturin develop --release
 
 ---
 
-## Usage
+## Reading
 
 ### Iterate rows from an Excel file
 
@@ -76,7 +76,7 @@ with open("output.csv", "w", newline="") as f:
         writer.writerow(row)
 ```
 
-### Process an Excel workbook in chunks with pandas
+### Process in chunks with pandas
 
 ```python
 import pandas as pd, streamxl
@@ -91,15 +91,59 @@ for row in streamxl.read("large_report.xlsx"):
         rows.clear()
 ```
 
-`streamxl.stream()` is an alias for `streamxl.read()` — use whichever reads better in your context.
+`streamxl.stream()` is an alias for `streamxl.read()`.
+
+---
+
+## Writing
+
+### Write rows in one call
+
+```python
+import streamxl
+
+streamxl.write("report.xlsx", [
+    ["Name", "Age", "Score", "Active"],
+    ["Alice", 30, 95.5, True],
+    ["Bob",   25, 88.0, False],
+])
+```
+
+Supported cell types: `str`, `int`, `float`, `bool`, `None` (written as an empty cell).
+
+### Stream rows with the context-manager writer
+
+Use `streamxl.writer()` when you're generating rows one at a time and don't want to hold them all in memory:
+
+```python
+import streamxl
+
+with streamxl.writer("report.xlsx") as w:
+    w.write_row(["Name", "Age", "Score"])
+    for name, age, score in fetch_from_db():
+        w.write_row([name, age, score])
+# file is finalised and closed on __exit__
+```
+
+### ETL: read one Excel file, transform, write another
+
+```python
+import streamxl
+
+with streamxl.writer("output.xlsx") as w:
+    w.write_row(["name", "amount_usd"])
+    for row in streamxl.read("source.xlsx"):
+        name, amount_gbp = row[0], row[3]
+        w.write_row([name, amount_gbp * 1.27])
+```
 
 ---
 
 ## Why not just use openpyxl?
 
-openpyxl is the standard Python library for reading Excel files, but it loads the entire workbook into memory. At 250k rows it approaches 1 GB RAM and crashes on typical cloud instances. streamxl processes the same file in 68 MB.
+openpyxl full load approaches 1 GB RAM at 250k rows and crashes on typical cloud instances. openpyxl `write_only` mode is safer but still pure Python. streamxl does both in Rust.
 
-Benchmarked on Apple Silicon, Python 3.13, Rust 1.96 — 10 mixed-type columns:
+**Read benchmark** — Apple Silicon, Python 3.13, Rust 1.96, 10 mixed-type columns:
 
 | Rows | streamxl | openpyxl read_only | openpyxl full load | Speedup |
 |------|----------|--------------------|--------------------|---------|
@@ -108,19 +152,18 @@ Benchmarked on Apple Silicon, Python 3.13, Rust 1.96 — 10 mixed-type columns:
 | 100,000 | **3.59s** · 27.5 MB | 15.80s · 8.1 MB | 19.77s · 373 MB | **4.4×** |
 | 250,000 | **9.04s** · 68.7 MB | 40.46s · 19.6 MB | 50.67s · **911 MB** | **4.5×** |
 
-Throughput: ~27,000 rows/sec regardless of file size.
-
-Full results and reproduction steps: [`benchmarks/results.md`](benchmarks/results.md)
+Read throughput: ~27,000 rows/sec. Full results: [`benchmarks/results.md`](benchmarks/results.md)
 
 ```bash
 python benchmarks/openpyxl_vs_streamxl.py your_file.xlsx
+python benchmarks/openpyxl_vs_streamxl_write.py
 ```
 
 ---
 
 ## Cell value types
 
-Excel cells are mapped to Python types as follows:
+**Reading** — Excel cells are mapped to Python types:
 
 | Excel cell type | Python type | Notes |
 |----------------|-------------|-------|
@@ -129,6 +172,15 @@ Excel cells are mapped to Python types as follows:
 | Number (`t="n"` or default) | `float` | All numeric values returned as float |
 | Boolean (`t="b"`) | `bool` | `"1"` → `True`, `"0"` → `False` |
 | Empty cell | `None` | Cell absent or blank |
+
+**Writing** — Python types are mapped to Excel cells:
+
+| Python type | Excel cell type |
+|-------------|----------------|
+| `str` | Shared string (deduplicated via SST) |
+| `int` / `float` | Number |
+| `bool` | Boolean |
+| `None` | Empty cell |
 
 ---
 
@@ -139,6 +191,7 @@ Excel cells are mapped to Python types as follows:
 - [x] inlineStr cell type support
 - [x] Boolean, numeric, and string cell types
 - [x] pip and uv installable wheel
+- [x] XLSX writer (`streamxl.write()` and `streamxl.writer()`)
 - [ ] Multi-sheet support (`sheet="SheetName"` parameter)
 - [ ] Date/datetime cell type
 - [ ] Header row as dict keys (`as_dict=True`)
@@ -148,22 +201,22 @@ Excel cells are mapped to Python types as follows:
 
 ## How it works
 
-`.xlsx` is a ZIP archive containing XML files. streamxl opens the ZIP, loads `sharedStrings.xml` once (the dictionary Excel uses to deduplicate repeated strings), then event-streams `sheet1.xml` via `quick-xml` — so only one row ever lives in memory at a time.
+`.xlsx` is a ZIP archive of XML files. On **read**, streamxl loads `sharedStrings.xml` once, then event-streams `sheet1.xml` via `quick-xml` — one row in memory at a time. On **write**, rows are encoded directly to XML in Rust as they arrive, with strings deduplicated into a shared string table; the ZIP is assembled and flushed to disk on close.
 
 ```
-streamxl.read("file.xlsx")
-        │
-        ▼
-python/streamxl/api.py        Python iterator API
-        │
-        ▼
-python/src/lib.rs             Python bridge (zero-copy FFI)
-        │
-        ▼
-core/src/stream.rs            Rust: orchestrates ZIP + XML parsing
-   ├── zip_reader.rs          wraps the zip crate for entry access
-   ├── shared_strings.rs      parses xl/sharedStrings.xml → Vec<String>
-   └── sheet_parser.rs        streams <row> elements one at a time
+streamxl.read("file.xlsx")          streamxl.write("file.xlsx", rows)
+        │                                    │
+        ▼                                    ▼
+python/streamxl/api.py              python/streamxl/api.py
+        │                                    │
+        ▼                                    ▼
+python/src/lib.rs  (PyO3 bridge)    python/src/lib.rs  (PyO3 bridge)
+        │                                    │
+        ▼                                    ▼
+core/src/stream.rs                  core/src/writer.rs
+   ├── zip_reader.rs                    └── ZIP + XML generation in Rust
+   ├── shared_strings.rs
+   └── sheet_parser.rs
 ```
 
 See [docs/architecture.md](docs/architecture.md) for full details.
@@ -174,26 +227,26 @@ See [docs/architecture.md](docs/architecture.md) for full details.
 
 ```
 streamxl/
-├── core/                    # Rust engine (ZIP + XML streaming)
+├── core/                    # Rust engine
 │   └── src/
-│       ├── lib.rs
-│       ├── zip_reader.rs
-│       ├── sheet_parser.rs  # inlineStr + sharedString + bool/number parsing
+│       ├── stream.rs        # read orchestration
+│       ├── writer.rs        # write: XML generation + ZIP assembly
+│       ├── sheet_parser.rs  # streaming XML row parser
 │       ├── shared_strings.rs
-│       └── stream.rs
-├── python/                  # Python API layer
-│   ├── src/lib.rs           # Rust ↔ Python bridge
+│       └── zip_reader.rs
+├── python/                  # Python API + PyO3 bridge
+│   ├── src/lib.rs
 │   └── streamxl/
 │       ├── __init__.py
-│       ├── api.py           # streamxl.read() / streamxl.stream()
+│       ├── api.py           # read(), stream(), write(), writer()
 │       └── core.py
-├── benchmarks/              # openpyxl vs streamxl comparison scripts
-├── tests/                   # pytest test suite
-├── examples/                # ETL, CSV export, memory benchmark
-├── docs/                    # Architecture, API spec, XLSX format notes
-├── scripts/                 # build.sh, benchmark.sh
-├── pyproject.toml           # maturin build config
-└── Cargo.toml               # Rust workspace root
+├── benchmarks/              # read and write benchmarks vs openpyxl
+├── tests/                   # pytest suite (22 tests)
+├── examples/
+├── docs/
+├── scripts/
+├── pyproject.toml
+└── Cargo.toml
 ```
 
 ---
@@ -203,7 +256,7 @@ streamxl/
 ```bash
 git clone https://github.com/Mullassery/StreamXL.git
 cd StreamXL
-maturin develop
+maturin develop --release
 ```
 
 **Test:**
@@ -212,9 +265,14 @@ pip install pytest
 pytest tests/ -v
 ```
 
-**Benchmark:**
+**Benchmark read:**
 ```bash
-bash scripts/benchmark.sh path/to/large_file.xlsx
+python benchmarks/openpyxl_vs_streamxl.py path/to/file.xlsx
+```
+
+**Benchmark write:**
+```bash
+python benchmarks/openpyxl_vs_streamxl_write.py
 ```
 
 Read [docs/design_decisions.md](docs/design_decisions.md) before opening a large PR.

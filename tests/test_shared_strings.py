@@ -1,19 +1,25 @@
-from streamxl_core.shared_strings import parse
+"""
+Shared string table is an internal Rust detail — test it through the public API:
+write rows with repeated strings, read them back, verify correctness.
+"""
+import streamxl
 
 
-SST_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
-<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="3" uniqueCount="3">
-  <si><t>Hello</t></si>
-  <si><t>World</t></si>
-  <si><t>Streamxl</t></si>
-</sst>"""
+def test_shared_strings_roundtrip(tmp_path):
+    rows = [
+        ["hello", "world", "hello"],
+        ["world", "hello", "world"],
+    ]
+    path = str(tmp_path / "sst.xlsx")
+    streamxl.write(path, rows)
+    result = list(streamxl.read(path))
+    assert result == rows
 
 
-def test_parse_returns_strings():
-    result = parse(SST_XML)
-    assert result == ["Hello", "World", "Streamxl"]
-
-
-def test_empty_sst():
-    result = parse(b'<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"></sst>')
-    assert result == []
+def test_empty_sst(tmp_path):
+    """Numeric-only file has no shared strings — should still work."""
+    rows = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+    path = str(tmp_path / "nums.xlsx")
+    streamxl.write(path, rows)
+    result = list(streamxl.read(path))
+    assert result == rows

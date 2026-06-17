@@ -50,6 +50,12 @@ impl<'a> SheetParser<'a> {
                 Event::Text(ref e) if in_v || in_t => {
                     cell_value.push_str(&e.unescape()?);
                 }
+                // Self-closing empty cell: <c/> or <c r="A1"/>
+                Event::Empty(ref e) if e.name().as_ref() == b"c" => {
+                    if let Some(ref mut r) = row {
+                        r.push(CellValue::Empty);
+                    }
+                }
                 Event::End(ref e) => match e.name().as_ref() {
                     b"v" => in_v = false,
                     b"t" => in_t = false,
