@@ -1,6 +1,6 @@
 # streamxl
 
-**Read Microsoft Excel files (`.xlsx`) row by row without loading them into memory — powered by Rust.**
+**A Python library for reading Microsoft Excel files (`.xlsx`) row by row without loading them into memory — powered by Rust.**
 
 [![CI](https://github.com/Mullassery/StreamXL/actions/workflows/ci.yml/badge.svg)](https://github.com/Mullassery/StreamXL/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/Mullassery/StreamXL/releases)
@@ -8,7 +8,7 @@
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://pypi.org/project/streamxl/)
 [![Rust](https://img.shields.io/badge/rust-1.96%2B-orange)](https://www.rust-lang.org/)
 
-If your team exports data from Microsoft Excel, Google Sheets, LibreOffice Calc, or any other spreadsheet tool as `.xlsx`, streamxl lets you process those files in Python without loading the entire workbook into memory. It streams the sheet XML one row at a time and runs 4–5× faster than openpyxl across all file sizes.
+streamxl is a Python library for processing `.xlsx` spreadsheets — files exported from Microsoft Excel, Google Sheets, LibreOffice Calc, or any tool that writes the Office Open XML format. It streams the sheet one row at a time so you never load the entire workbook into memory, and runs 4–5× faster than openpyxl across all file sizes.
 
 ---
 
