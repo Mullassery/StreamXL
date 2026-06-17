@@ -143,7 +143,9 @@ with streamxl.writer("output.xlsx") as w:
 
 openpyxl full load approaches 1 GB RAM at 250k rows and crashes on typical cloud instances. openpyxl `write_only` mode is safer but still pure Python. streamxl does both in Rust.
 
-**Read benchmark** — Apple Silicon, Python 3.13, Rust 1.96, 10 mixed-type columns:
+All benchmarks measured on Apple Silicon (M-series), Python 3.13, Rust 1.96, 10 mixed-type columns.
+
+**Read** — streamxl vs openpyxl:
 
 | Rows | streamxl | openpyxl read_only | openpyxl full load | Speedup |
 |------|----------|--------------------|--------------------|---------|
@@ -153,6 +155,17 @@ openpyxl full load approaches 1 GB RAM at 250k rows and crashes on typical cloud
 | 250,000 | **9.04s** · 68.7 MB | 40.46s · 19.6 MB | 50.67s · **911 MB** | **4.5×** |
 
 Read throughput: ~27,000 rows/sec. Full results: [`benchmarks/results.md`](benchmarks/results.md)
+
+**Write** — streamxl vs openpyxl write_only:
+
+| Rows | streamxl | openpyxl write_only | Speedup |
+|------|----------|---------------------|---------|
+| 10,000 | **12ms** · 0.1 MB | 102ms · 0.2 MB | **8.8×** |
+| 50,000 | **44ms** · 0.4 MB | 476ms · 1.0 MB | **10.9×** |
+| 100,000 | **90ms** · 0.8 MB | 958ms · 2.0 MB | **10.7×** |
+| 250,000 | **230ms** · 1.9 MB | 2.41s · 5.1 MB | **10.5×** |
+
+Write throughput: ~1,000,000 rows/sec.
 
 ```bash
 python benchmarks/openpyxl_vs_streamxl.py your_file.xlsx
