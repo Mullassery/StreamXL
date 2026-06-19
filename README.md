@@ -1,6 +1,6 @@
-# streamxl
+# StreamXL
 
-**High-performance streaming XLSX reader for Python — powered by Rust**
+**Read 1M+ row Excel files without memory crashes — 4-5× faster than openpyxl**
 
 [![CI](https://github.com/Mullassery/StreamXL/actions/workflows/ci.yml/badge.svg)](https://github.com/Mullassery/StreamXL/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/streamxl)](https://pypi.org/project/streamxl/)
@@ -8,8 +8,17 @@
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://pypi.org/project/streamxl/)
 [![Rust](https://img.shields.io/badge/rust-1.96%2B-orange)](https://www.rust-lang.org/)
 
-> **What is this?**
-> streamxl is a Python library that reads `.xlsx` files row-by-row without loading the entire file into memory. The parsing engine is written in Rust and exposed to Python via PyO3. It is designed for ETL pipelines, data engineering workflows, and any scenario where openpyxl runs out of memory or is too slow.
+StreamXL is a memory-efficient XLSX reader for Python with a Rust parsing engine. Process massive Excel files row-by-row without loading into RAM. Built for ETL pipelines, data engineering workflows, and any scenario where openpyxl runs out of memory or is too slow.
+
+## Why Star StreamXL?
+
+- **Memory efficient** — Process 1M+ row files without crashes (openpyxl at 250k rows: 911 MB RAM → crash)
+- **4-5× faster** — Rust engine consistently beats openpyxl at every scale
+- **Streaming support** — Row-by-row processing perfect for production data pipelines
+- **Drop-in replacement** — Same simple API as openpyxl, swap one import
+- **MIT licensed** — Free for commercial use
+
+Star if StreamXL solved your Excel memory problems or accelerated your data pipeline.
 
 ---
 
