@@ -423,9 +423,17 @@ Read [docs/design_decisions.md](docs/design_decisions.md) before opening a large
 
 ---
 
+## Community
+
+- **GitHub Issues** — [Report bugs and request features](https://github.com/Mullassery/StreamXL/issues)
+- **GitHub Discussions** — [Questions and best practices](https://github.com/Mullassery/StreamXL/discussions)
+- **Code of Conduct** — [Be respectful and constructive](./CODE_OF_CONDUCT.md)
+
 ## Contributing
 
-PRs welcome. See [docs/design_decisions.md](docs/design_decisions.md) for architectural context.
+PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/design_decisions.md](docs/design_decisions.md) for development setup and architectural context.
+
+For security issues, see [SECURITY.md](SECURITY.md).
 
 ---
 
