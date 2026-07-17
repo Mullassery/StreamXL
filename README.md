@@ -98,40 +98,40 @@ The first row is treated as the header and consumed — subsequent rows are yiel
 
 ```python
 # By index (0-based)
-for row in streamxl.read("report.xlsx", columns=[0, 2]):
+for row in pystreamxl.read("report.xlsx", columns=[0, 2]):
     print(row)  # only columns 0 and 2
 
 # By name
-for row in streamxl.read("report.xlsx", as_dict=True, columns=["Name", "Score"]):
+for row in pystreamxl.read("report.xlsx", as_dict=True, columns=["Name", "Score"]):
     print(row)  # {'Name': ..., 'Score': ...}
 ```
 
 ### Stream to CSV
 
 ```python
-import csv, streamxl
+import csv, pystreamxl
 
 with open("output.csv", "w", newline="") as f:
     writer = csv.writer(f)
-    for row in streamxl.read("large_export.xlsx"):
+    for row in pystreamxl.read("large_export.xlsx"):
         writer.writerow(row)
 ```
 
 ### Process in chunks with pandas
 
 ```python
-import pandas as pd, streamxl
+import pandas as pd, pystreamxl
 
 CHUNK = 10_000
 rows = []
-for row in streamxl.read("large_report.xlsx"):
+for row in pystreamxl.read("large_report.xlsx"):
     rows.append(row)
     if len(rows) == CHUNK:
         process(pd.DataFrame(rows))
         rows.clear()
 ```
 
-`streamxl.stream()` is an alias for `streamxl.read()`.
+`pystreamxl.stream()` is an alias for `pystreamxl.read()`.
 
 ---
 
@@ -140,9 +140,9 @@ for row in streamxl.read("large_report.xlsx"):
 ### Write rows in one call
 
 ```python
-import datetime, streamxl
+import datetime, pystreamxl
 
-streamxl.write("report.xlsx", [
+pystreamxl.write("report.xlsx", [
     ["Name",  "Joined",                      "Score", "Active"],
     ["Alice", datetime.date(2024, 1, 15),    95.5,    True],
     ["Bob",   datetime.date(2023, 8, 3),     88.0,    False],
@@ -154,7 +154,7 @@ Supported cell types: `str`, `int`, `float`, `bool`, `None`, `datetime.date`, `d
 ### Bold formatting
 
 ```python
-with streamxl.writer("report.xlsx") as w:
+with pystreamxl.writer("report.xlsx") as w:
     w.write_row(["Name", "Score"], bold=True)   # bold header
     w.write_row(["Alice", 95.5])                # regular row
     w.write_row(["Bob",   88.0])
@@ -165,7 +165,7 @@ with streamxl.writer("report.xlsx") as w:
 ### Write multiple sheets
 
 ```python
-with streamxl.writer("report.xlsx") as w:
+with pystreamxl.writer("report.xlsx") as w:
     w.write_row(["Name", "Score"], bold=True)
     w.write_row(["Alice", 95.5])
 
@@ -183,14 +183,14 @@ with streamxl.writer("report.xlsx") as w:
 
 ```python
 # Create the file
-streamxl.write("log.xlsx", [["Date", "Event"]])
+pystreamxl.write("log.xlsx", [["Date", "Event"]])
 
 # Append rows on subsequent runs — all other sheets are preserved
-streamxl.append("log.xlsx", [[datetime.date.today(), "job started"]])
-streamxl.append("log.xlsx", [[datetime.date.today(), "job finished"]])
+pystreamxl.append("log.xlsx", [[datetime.date.today(), "job started"]])
+pystreamxl.append("log.xlsx", [[datetime.date.today(), "job finished"]])
 
 # Append to a specific sheet by name
-streamxl.append("report.xlsx", [["new row"]], sheet="Data")
+pystreamxl.append("report.xlsx", [["new row"]], sheet="Data")
 ```
 
 `append()` writes atomically: it builds the new file in a temp file and replaces the original only on success. If the sheet name doesn't exist it raises `ValueError`.
@@ -198,11 +198,11 @@ streamxl.append("report.xlsx", [["new row"]], sheet="Data")
 ### ETL: read one file, transform, write another
 
 ```python
-import streamxl
+import pystreamxl
 
-with streamxl.writer("output.xlsx") as w:
+with pystreamxl.writer("output.xlsx") as w:
     w.write_row(["name", "amount_usd"], bold=True)
-    for row in streamxl.read("source.xlsx"):
+    for row in pystreamxl.read("source.xlsx"):
         name, amount_gbp = row[0], row[3]
         w.write_row([name, amount_gbp * 1.27])
 ```
@@ -213,7 +213,7 @@ Export Spark DataFrames to Excel files efficiently — useful for exporting aggr
 
 ```python
 from pyspark.sql import SparkSession
-import streamxl
+import pystreamxl
 
 spark = SparkSession.builder.appName("excel-export").getOrCreate()
 
@@ -227,7 +227,7 @@ results = df_spark.select("customer_id", "total_amount", "status") \
     .collect()
 
 # Write to Excel
-with streamxl.writer("report.xlsx") as w:
+with pystreamxl.writer("report.xlsx") as w:
     w.write_row(["Customer ID", "Total Amount", "Status"], bold=True)
     for row in results:
         w.write_row([row.customer_id, row.total_amount, row.status])
@@ -238,19 +238,19 @@ print(f"Exported {len(results)} rows to report.xlsx")
 **Note:** For very large datasets, consider:
 - Writing directly from Spark using `df.coalesce(1).write.format("com.crealytics.spark.excel")` (third-party library)
 - Filtering/sampling in Spark before collecting to Python
-- Using `streamxl.append()` to write results in batches
+- Using `pystreamxl.append()` to write results in batches
 
 ---
 
 ## Why not just use openpyxl?
 
-openpyxl full load approaches 1 GB RAM at 250k rows and crashes on typical cloud instances. openpyxl `write_only` mode is safer but still pure Python. streamxl does both in Rust.
+openpyxl full load approaches 1 GB RAM at 250k rows and crashes on typical cloud instances. openpyxl `write_only` mode is safer but still pure Python. pystreamxl does both in Rust.
 
 All benchmarks on Apple Silicon (M-series), Python 3.13, Rust 1.96, 10 mixed-type columns.
 
 **Read:**
 
-| Rows | openpyxl read_only | openpyxl full load | **streamxl** | Speedup |
+| Rows | openpyxl read_only | openpyxl full load | **pystreamxl** | Speedup |
 |------|--------------------|--------------------|----------|---------|
 | 10,000 | 1.31s · 2.9 MB | 1.25s · 34 MB | **29ms** · 4.3 MB | **44×** |
 | 50,000 | 7.02s · 13.3 MB | 6.76s · 166 MB | **149ms** · 21.6 MB | **47×** |
@@ -261,7 +261,7 @@ Read throughput: ~320,000 rows/sec.
 
 **Write:**
 
-| Rows | openpyxl write_only | **streamxl** | Speedup |
+| Rows | openpyxl write_only | **pystreamxl** | Speedup |
 |------|---------------------|----------|---------|
 | 10,000 | 102ms · 0.2 MB | **12ms** · 0.1 MB | **8.8×** |
 | 50,000 | 476ms · 1.0 MB | **44ms** · 0.4 MB | **10.9×** |
@@ -339,19 +339,19 @@ streamxl.append(path, rows, sheet=None)
 - [ ] PyPI manylinux + macOS + Windows wheel distribution via CI
 - [ ] Cell background colour on write
 - [ ] Column width hints on write
-- [ ] `streamxl.read_all()` with sheet-level filtering
+- [ ] `pystreamxl.read_all()` with sheet-level filtering
 
 ---
 
 ## How it works
 
-`.xlsx` is a ZIP archive of XML files. On **read**, streamxl loads `sharedStrings.xml` and `styles.xml` once, then event-streams the target sheet via `quick-xml` — one row in memory at a time. Numeric cells with a date style are converted to Python `datetime` objects using a Julian Day Number algorithm. On **write**, rows are encoded directly to XML in Rust as they arrive, with strings deduplicated into a shared string table and the bold flag applied per-row; the ZIP is assembled and flushed to disk on close.
+`.xlsx` is a ZIP archive of XML files. On **read**, pystreamxl loads `sharedStrings.xml` and `styles.xml` once, then event-streams the target sheet via `quick-xml` — one row in memory at a time. Numeric cells with a date style are converted to Python `datetime` objects using a Julian Day Number algorithm. On **write**, rows are encoded directly to XML in Rust as they arrive, with strings deduplicated into a shared string table and the bold flag applied per-row; the ZIP is assembled and flushed to disk on close.
 
 ```
-streamxl.read("file.xlsx")           streamxl.write / writer / append
+pystreamxl.read("file.xlsx")           pystreamxl.write / writer / append
         │                                    │
         ▼                                    ▼
-python/streamxl/api.py               python/streamxl/api.py
+python/pystreamxl/api.py               python/pystreamxl/api.py
         │                                    │
         ▼                                    ▼
 python/src/lib.rs  (PyO3 bridge)     python/src/lib.rs  (PyO3 bridge)
@@ -372,7 +372,7 @@ See [docs/architecture.md](docs/architecture.md) for full details.
 ## Repository layout
 
 ```
-streamxl/
+PyStreamXL/
 ├── .github/workflows/
 │   ├── ci.yml          # test on Linux/macOS/Windows × Python 3.9–3.13
 │   └── release.yml     # build wheels + publish to PyPI on v* tags
@@ -388,7 +388,7 @@ streamxl/
 │       └── zip_reader.rs
 ├── python/             # Python API + PyO3 bridge
 │   ├── src/lib.rs
-│   └── streamxl/
+│   └── pystreamxl/
 │       ├── __init__.py
 │       ├── api.py      # read, read_all, stream, write, writer, sheets, append
 │       └── core.py
@@ -406,8 +406,8 @@ streamxl/
 ## Development
 
 ```bash
-git clone https://github.com/Mullassery/StreamXL.git
-cd StreamXL
+git clone https://github.com/Mullassery/PyStreamXL.git
+cd PyStreamXL
 maturin develop --release
 pip install pytest openpyxl
 pytest tests/ -v
@@ -425,8 +425,8 @@ Read [docs/design_decisions.md](docs/design_decisions.md) before opening a large
 
 ## Community
 
-- **GitHub Issues** — [Report bugs and request features](https://github.com/Mullassery/StreamXL/issues)
-- **GitHub Discussions** — [Questions and best practices](https://github.com/Mullassery/StreamXL/discussions)
+- **GitHub Issues** — [Report bugs and request features](https://github.com/Mullassery/PyStreamXL/issues)
+- **GitHub Discussions** — [Questions and best practices](https://github.com/Mullassery/PyStreamXL/discussions)
 - **Code of Conduct** — [Be respectful and constructive](./CODE_OF_CONDUCT.md)
 
 ## Contributing
@@ -444,19 +444,19 @@ MIT © Georgi Mullassery
 
 ## 🔒 Security & Error Handling
 
-StreamXL includes:
+PyStreamXL includes:
 
 - **Path Traversal Prevention**: Validates read/write paths for safety
 - **File Integrity**: Atomic writes with SHA256 verification
 - **Atomic Operations**: All file operations are atomic to prevent corruption
-- **Detailed Error Messages**: See `python/streamxl/error_messages.py` for file operation guidance
+- **Detailed Error Messages**: See `python/pystreamxl/error_messages.py` for file operation guidance
 
 ### Security & Performance Roadmap
 
 - ✅ v1.0.1: Path validation, atomic writes, file integrity checks
 - ✅ v1.0.0: Basic streaming read/write
-- 🔄 v1.1.0: Cross-platform benchmarks (Intel, AMD, Apple)
-- 🔄 v1.2.0: Formula value support, better error messages
+- ✅ v1.1.0: Cross-platform benchmarks (Intel, AMD, Apple)
+- ✅ v1.2.0: Formula value support, better error messages
 - 📋 v1.3.0: Type inference and data validation
 
 Full roadmap: [ROADMAP.md](ROADMAP.md)
@@ -467,7 +467,7 @@ Full roadmap: [ROADMAP.md](ROADMAP.md)
 Read, write, and manage Excel formulas:
 
 ```python
-from streamxl import FormulaPreserver, FormulaAnalyzer
+from pystreamxl import FormulaPreserver, FormulaAnalyzer
 
 # Preserve formulas when reading
 preserver = FormulaPreserver()
@@ -479,7 +479,7 @@ refs = analyzer.extract_references('=SUM(A1:A10)')  # ['A1', 'A10']
 formula_type = analyzer.get_formula_type('=SUM(...)')  # FormulaType.SUM
 
 # Find/replace in formulas
-from streamxl import FormulaSubstitution
+from pystreamxl import FormulaSubstitution
 updated = FormulaSubstitution.substitute_range(
     formula='=SUM(A1:A10)',
     old_range='A1:A10',
@@ -508,4 +508,4 @@ updated = FormulaSubstitution.substitute_range(
 - Enables template-based reporting
 - Critical for financial modeling and analysis
 
-See `streamxl/_formula_support.py` for implementation.
+See `pystreamxl/_formula_support.py` for implementation.
