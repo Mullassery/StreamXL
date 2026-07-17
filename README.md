@@ -303,31 +303,31 @@ Write throughput: ~1,000,000 rows/sec. Full benchmark scripts: [`benchmarks/`](b
 
 ```python
 # ── Reading ──────────────────────────────────────────────────────────────────
-streamxl.read(path, sheet=None, as_dict=False, columns=None)
+pystreamxl.read(path, sheet=None, as_dict=False, columns=None)
 #   sheet    — sheet name to read (default: first sheet)
 #   as_dict  — yield rows as dicts keyed by header row
 #   columns  — list of int (indices) or str (names) to include
 
-streamxl.read_all(path, as_dict=False)
+pystreamxl.read_all(path, as_dict=False)
 #   → {sheet_name: [rows]} for every sheet in the file
 
-streamxl.sheets(path)
+pystreamxl.sheets(path)
 #   → ['Sheet1', 'Data', 'Summary']
 
-streamxl.stream(path)   # alias for read()
+pystreamxl.stream(path)   # alias for read()
 
 # ── Writing (batch) ──────────────────────────────────────────────────────────
-streamxl.write(path, rows)
+pystreamxl.write(path, rows)
 
 # ── Writing (streaming / multi-sheet) ───────────────────────────────────────
-w = streamxl.writer(path)
+w = pystreamxl.writer(path)
 w.write_row(row, bold=False)   # write one row; bold=True applies bold font
 w.add_sheet(name)              # finalise current sheet, open a new one
 w.close()                      # finalise and write the ZIP
 # or use as a context manager — w.close() is called automatically on __exit__
 
 # ── Appending ────────────────────────────────────────────────────────────────
-streamxl.append(path, rows, sheet=None)
+pystreamxl.append(path, rows, sheet=None)
 #   Appends rows to sheet (default: first sheet), preserving all other sheets.
 #   Atomic write: temp file → os.replace(). Raises ValueError for missing sheet.
 ```
