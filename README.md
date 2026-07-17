@@ -1,22 +1,22 @@
-# streamxl
+# PyStreamXL
 
 **A Python library for reading and writing Microsoft Excel files (`.xlsx`) — powered by Rust.**
 
-[![Version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/Mullassery/StreamXL/releases)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/Mullassery/PyStreamXL/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://pypi.org/project/streamxl/)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://pypi.org/project/pystreamxl/)
 [![Rust](https://img.shields.io/badge/rust-1.96%2B-orange)](https://www.rust-lang.org/)
 
-streamxl is a Python library for reading and writing `.xlsx` spreadsheets — files used by Microsoft Excel, Google Sheets, LibreOffice Calc, and any tool that uses the Office Open XML format. It streams row by row on both read and write, so you never load the entire workbook into memory, and runs ~46× faster than openpyxl on read and ~10× faster on write.
+PyStreamXL is a Python library for reading and writing `.xlsx` spreadsheets — files used by Microsoft Excel, Google Sheets, LibreOffice Calc, and any tool that uses the Office Open XML format. It streams row by row on both read and write, so you never load the entire workbook into memory, and runs ~46× faster than openpyxl on read and ~10× faster on write.
 
 ---
 
 ## Install
 
 ```bash
-pip install streamxl
+pip install pystreamxl
 # or
-uv add streamxl
+uv add pystreamxl
 ```
 
 **Wheels:** Linux (x86_64, aarch64) · macOS (Apple Silicon, Intel) · Windows (x86_64)
@@ -26,20 +26,20 @@ uv add streamxl
 
 **One-liner (auto-detects uv or pip, builds from source if no wheel exists):**
 ```bash
-curl -sSf https://raw.githubusercontent.com/Mullassery/StreamXL/main/scripts/install.sh | sh
+curl -sSf https://raw.githubusercontent.com/Mullassery/PyStreamXL/main/scripts/install.sh | sh
 ```
 
 **Latest from GitHub:**
 ```bash
-pip install git+https://github.com/Mullassery/StreamXL.git
+pip install git+https://github.com/Mullassery/PyStreamXL.git
 ```
 
 **From source:**
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh  # Rust, if not installed
 pip install maturin
-git clone https://github.com/Mullassery/StreamXL.git
-cd StreamXL
+git clone https://github.com/Mullassery/PyStreamXL.git
+cd PyStreamXL
 maturin develop --release
 ```
 </details>
@@ -53,9 +53,9 @@ maturin develop --release
 ### Iterate rows from an Excel file
 
 ```python
-import streamxl
+import pystreamxl
 
-for row in streamxl.read("report.xlsx"):
+for row in pystreamxl.read("report.xlsx"):
     print(row)
 # ['Name', 'Joined', 'Score']
 # ['Alice', datetime.date(2024, 1, 15), 95.5]
@@ -66,28 +66,28 @@ Works with any `.xlsx` file — exports from Microsoft Excel, Google Sheets ("Do
 ### Read a specific sheet
 
 ```python
-print(streamxl.sheets("report.xlsx"))
+print(pystreamxl.sheets("report.xlsx"))
 # ['Summary', 'Data', 'Config']
 
-for row in streamxl.read("report.xlsx", sheet="Data"):
+for row in pystreamxl.read("report.xlsx", sheet="Data"):
     print(row)
 ```
 
 ### Read all sheets at once
 
 ```python
-data = streamxl.read_all("report.xlsx")
+data = pystreamxl.read_all("report.xlsx")
 # {'Sheet1': [['Name', 'Score'], ['Alice', 95.5]], 'Summary': [['Total', 1.0]]}
 
 # With dict rows
-data = streamxl.read_all("report.xlsx", as_dict=True)
+data = pystreamxl.read_all("report.xlsx", as_dict=True)
 # {'Sheet1': [{'Name': 'Alice', 'Score': 95.5}], ...}
 ```
 
 ### Read rows as dicts
 
 ```python
-for row in streamxl.read("report.xlsx", as_dict=True):
+for row in pystreamxl.read("report.xlsx", as_dict=True):
     print(row)
 # {'Name': 'Alice', 'Joined': datetime.date(2024, 1, 15), 'Score': 95.5}
 ```
