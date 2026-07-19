@@ -66,3 +66,9 @@ python-source = "python"
 module-name = "streamxl._core"
 manifest-path = "python/Cargo.toml"
 include = ["LICENSE", "README.md"]
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
